@@ -8,6 +8,8 @@ verify_ssl = true
 [packages]
 numpy = "*"
 scipy = "*"
+matplotlib = "*"
+pyecharts = "*"
 
 [requires]
 python_version = "3.7"

@@ -1,8 +1,17 @@
 # -*- coding: utf-8 -*-
 import numpy as np
+import matplotlib.pyplot as plt
+from scipy import interpolate
+import random
 
 
 class Utils(object):
+    Z_fx = 214  # 汛限水位
+    Z_fg = 228  # 防洪高水位
+    Z_sj = 229.63  # 设计洪水位
+    Z_jx = 231.27  # 校核洪水位
+    DT = 1 * 3600  # dt, 时段长1小时
+    # 水库特性曲线资料
     ZVQ = np.array([
         [170,    4.79,   73],
         [170.78, 5.00,   120],
@@ -35,6 +44,7 @@ class Utils(object):
         [233,    55.49,  15065],
         [233.73, 56.60,  15065],
     ])
+    # 入库流量过程
     QIN = np.array([
             634.6,     648.1,     681   ,    713.8 ,    746.7 ,    779.5 ,    812.4 ,    845.3 ,    878.1 ,   911    ,
             943.8 ,    976.7,     1009.5,    1164.9,    1442.7,    1720.6,    1998.4,    2276.3,    2554.2,    2832  ,
@@ -47,18 +57,72 @@ class Utils(object):
             2268  ,     2209.4,   2150.8,    2092.3,    2033.7,    1989.7,    1960.4,    1931.2,    1901.9,    1872.6
     ])
 
+    _fzv = interpolate.interp1d(ZVQ[:, 0], ZVQ[:, 1], kind='quadratic')
+    _fvz = interpolate.interp1d(ZVQ[:, 1], ZVQ[:, 0], kind='quadratic')
+    _fzq = interpolate.interp1d(ZVQ[:, 0], ZVQ[:, 2], kind='quadratic')
+    _fqz = interpolate.interp1d(ZVQ[:, 2], ZVQ[:, 0], kind='quadratic')
+
+    @classmethod
+    def fzv(cls, xnew):  # kind指定插值方法，默认二次样条曲线插值
+            ynew = cls._fzv(xnew)
+            return ynew
+
+    @classmethod
+    def fvz(cls, xnew):  # kind指定插值方法，默认二次样条曲线插值
+        ynew = cls._fvz(xnew)
+        return ynew
+
+    @classmethod
+    def fzq(cls, xnew):  # kind指定插值方法，默认二次样条曲线插值
+        ynew = cls._fzq(xnew)
+        return ynew
+
+    @classmethod
+    def fqz(cls, xnew):  # kind指定插值方法，默认二次样条曲线插值
+        ynew = cls._fqz(xnew)
+        return ynew
+
+
+def iteration():
+    QIN = Utils.QIN
+    (Q_qs, Q_ck, V, Z) = (np.zeros(QIN.size),  # 起始流量
+                          np.zeros(QIN.size),  # 出库流量
+                          np.zeros(QIN.size),  # 水库蓄水过程
+                          np.zeros(QIN.size))  # 水位过程
+    Z[0] = Utils.Z_fx
+    Q_T = Utils.fzq(Z[0])  # 最大过流能力
+    Q_ck[0] = Q_qs[0] + Q_T  # 出库流量过程
+    Q_ck_2 = random.randint(1, int(Q_ck[0]))
+    V[0] = Utils.fzv(Z[0])  # 水库蓄水量过程
+    while True:
+        Q_ck_3 =
 
 class Worker(object):
+    QIN = Utils.QIN
+    (Q_qs, Q_ck, V, Z) = (np.zeros(QIN.size),  # 起始流量
+                          np.zeros(QIN.size),  # 出库流量
+                          np.zeros(QIN.size),  # 水库蓄水过程
+                          np.zeros(QIN.size))  # 水位过程
+    Z[0] = Utils.Z_fx
+    Q_T = Utils.fzq(Z[0])  # 最大过流能力
+    Q_ck[0] = Q_qs[0] + Q_T  # 出库流量过程
+    V[0] = Utils.fzv(Z[0])  # 水库蓄水量过程
+
+    def __init__(self):
+        pass
+
     def iteration(self):
         pass
 
     def half_figure(self):
         pass
 
+    def plot(self):
+        pass
+
 
 def main():
-    utils = Utils()
-    print(utils.ZVQ)
+    print(Utils.ZVQ)
 
 
 if __name__ == "__main__":
