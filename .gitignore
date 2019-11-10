@@ -1,1 +1,6 @@
 *.lock
+figure/
+*.tex
+*.pdf
+report/
+.vscode/

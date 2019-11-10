@@ -60,7 +60,7 @@ class Utils(object):
     _fzv = interpolate.interp1d(ZVQ[:, 0], ZVQ[:, 1], kind='quadratic')
     _fvz = interpolate.interp1d(ZVQ[:, 1], ZVQ[:, 0], kind='quadratic')
     _fzq = interpolate.interp1d(ZVQ[:, 0], ZVQ[:, 2], kind='quadratic')
-    _fqz = interpolate.interp1d(ZVQ[:, 2], ZVQ[:, 0], kind='quadratic')
+    _fvq = interpolate.interp1d(ZVQ[:, 1], ZVQ[:, 2], kind='quadratic')
 
     @classmethod
     def fzv(cls, xnew):  # kind指定插值方法，默认二次样条曲线插值
@@ -78,52 +78,167 @@ class Utils(object):
         return ynew
 
     @classmethod
-    def fqz(cls, xnew):  # kind指定插值方法，默认二次样条曲线插值
-        ynew = cls._fqz(xnew)
+    def fvq(cls, xnew):  # kind指定插值方法，默认二次样条曲线插值
+        ynew = cls._fvq(xnew)
         return ynew
 
 
 def iteration():
-    QIN = Utils.QIN
-    (Q_qs, Q_ck, V, Z) = (np.zeros(QIN.size),  # 起始流量
-                          np.zeros(QIN.size),  # 出库流量
-                          np.zeros(QIN.size),  # 水库蓄水过程
-                          np.zeros(QIN.size))  # 水位过程
-    Z[0] = Utils.Z_fx
-    Q_T = Utils.fzq(Z[0])  # 最大过流能力
-    Q_ck[0] = Q_qs[0] + Q_T  # 出库流量过程
-    Q_ck_2 = random.randint(1, int(Q_ck[0]))
-    V[0] = Utils.fzv(Z[0])  # 水库蓄水量过程
-    while True:
-        Q_ck_3 =
+    error = 0.1  # 允许误差
+    q_rk = util.QIN
+    T = q_rk.size
+    (q_qs, q_ck, V, Z) = (0,  # 起始流量
+                          np.zeros(T+1),  # 出库流量
+                          np.zeros(T+1),  # 水库蓄水过程
+                          np.zeros(T+1))  # 水位过程
+    Z[0] = util.Z_fx
+    V[0] = util.fzv(Z[0])
+    for t in range(0, T-1):
+        print("<DEBUG> time [{}]".format(t))
+        Q_T = util.fzq(Z[t])  # 最大过流能力
+        q_ck[t] = q_qs + Q_T  # 出库流量过程
+        q_ck_2 = Q_T  # 初始化出库流量
+        q_ck[t+1] = q_ck_2
+        while True:
+            v1 = util.fzv(Z[t])  # 水库蓄水量过程
+            v2 = v1 + ((q_rk[t] + q_rk[t+1]) * util.DT / 2 - (q_ck[t] + q_ck[t+1]) * util.DT / 2)/10**8  # 水量平衡
+            q_ck_new = util.fvq(v2)  # v查q
+            if abs(q_ck_new-q_ck_2) > error:
+                # print("<DEBUG> error [{}]".format(q_ck_new-q_ck_2))
+                q_ck_2 = np.average([q_ck_new, q_ck_2])  # 初始化出库流量
+            else:
+                print("<DEBUG> q_rk[{}], q_ck [{}]".format(q_rk[t+1], q_ck_2))
+                q_ck[t+1] = q_ck_2
+                V[t+1] = v2
+                Z[t+1] = util.fvz(v2)
+                break
+    # 画入库出库流量过程
+    plt.plot(q_rk, '.-', label='In')
+    inmax = (np.where(q_rk == np.max(q_rk))[0][0], np.max(q_rk))
+    plt.plot(q_ck[:-2], 'r--', label='Out')
+    omax = (np.where(q_ck == np.max(q_ck))[0][0], np.max(q_ck).round(1))
+    plt.title("$In\\quad and\\quad Out(iterate)$")
+    plt.xlabel("$T(\\Delta T=1h)$")
+    plt.ylabel("$Q(m^3/s)$")
+    plt.annotate("max{}".format(inmax), xy=inmax)
+    plt.annotate("max{}".format(omax), xy=omax)
+    plt.xlim(0)
+    plt.legend()
+    plt.grid()
+    plt.show()
+    # 画水位变化
+    plt.plot(Z[:-1])
+    plt.title("$Z$")
+    plt.xlabel("$T$")
+    plt.ylabel("$Z(m)$")
+    zmax = (np.where(Z == np.max(Z))[0][0], np.max(Z).round(1))
+    plt.annotate("max{}".format(zmax), xy=zmax)
+    plt.xlim(0)
+    plt.grid()
+    plt.show()
 
-class Worker(object):
-    QIN = Utils.QIN
-    (Q_qs, Q_ck, V, Z) = (np.zeros(QIN.size),  # 起始流量
-                          np.zeros(QIN.size),  # 出库流量
-                          np.zeros(QIN.size),  # 水库蓄水过程
-                          np.zeros(QIN.size))  # 水位过程
-    Z[0] = Utils.Z_fx
-    Q_T = Utils.fzq(Z[0])  # 最大过流能力
-    Q_ck[0] = Q_qs[0] + Q_T  # 出库流量过程
-    V[0] = Utils.fzv(Z[0])  # 水库蓄水量过程
+# class Worker(object):
+#     QIN = Utils.QIN
+#     (Q_qs, Q_ck, V, Z) = (np.zeros(QIN.size),  # 起始流量
+#                           np.zeros(QIN.size),  # 出库流量
+#                           np.zeros(QIN.size),  # 水库蓄水过程
+#                           np.zeros(QIN.size))  # 水位过程
+#     Z[0] = Utils.Z_fx
+#     Q_T = Utils.fzq(Z[0])  # 最大过流能力
+#     Q_ck[0] = Q_qs[0] + Q_T  # 出库流量过程
+#     V[0] = Utils.fzv(Z[0])  # 水库蓄水量过程
+#
+#     def __init__(self):
+#         pass
+#
+#     def iteration(self):
+#         pass
+#
+#     def half_figure(self):
+#         pass
+#
+#     def plot(self):
+#         pass
 
-    def __init__(self):
-        pass
 
-    def iteration(self):
-        pass
+def half_figure():
+    z, v, q = util.ZVQ[:, 0], util.ZVQ[:, 1], util.ZVQ[:, 2]
+    y = v*10**8/util.DT+q/2
+    # 散点图
+    plt.scatter(y, q, label='scatter')
+    # 插值
+    fyq = interpolate.interp1d(y, q, 'quadratic')
+    ynew = np.linspace(min(y), max(y), len(y)*100)
+    qnew = fyq(ynew)
+    plt.plot(ynew, qnew, 'g--', label='interpolate')
+    # 拟合
+    z1 = np.polyfit(y, q, 3)
+    p1 = np.poly1d(z1)
+    plt.plot(y, p1(y), 'r-', label='polyfit')
+    # 调整图像
+    plt.xlabel("$\\frac{V}{\\Delta t}+\\frac{q}{2}(m^3/s)$")
+    plt.ylabel("$q(m^3/s)$")
+    plt.title("$q-\\frac{V}{\\Delta t}+\\frac{q}{2}$")
+    plt.legend()
+    plt.grid()
+    plt.show()
 
-    def half_figure(self):
-        pass
-
-    def plot(self):
-        pass
+    # 计算，采用拟合图像
+    q_rk = util.QIN
+    T = q_rk.size
+    (q_qs, q_ck, V, Z) = (0,  # 起始流量
+                          np.zeros(T + 1),  # 出库流量
+                          np.zeros(T + 1),  # 水库蓄水过程
+                          np.zeros(T + 1))  # 水位过程
+    Z[0] = util.Z_fx
+    V[0] = util.fzv(Z[0])
+    for t in range(0, T - 1):
+        # print("<DEBUG> time [{}]".format(t))
+        Q_T = util.fzq(Z[t])  # 最大过流能力
+        q_ck[t] = q_qs + Q_T  # 出库流量过程
+        y2 = np.average([q_rk[t], q_rk[t+1]]) - q_ck[t] + V[t] / util.DT + q_ck[t] / 2  # 计算右侧
+        q2 = p1(y2)  # 查q2
+        q_ck[t+1] = q2  # 放进结果
+        V[t+1] = V[t] + ((q_rk[t] + q_rk[t+1]) * util.DT / 2 - (q_ck[t] + q_ck[t+1]) * util.DT / 2)/10**8  # 水量平衡
+        Z[t+1] = util.fvz(V[t+1])  # 水位变化
+    # 画水位变化
+    plt.plot(Z[:-1])
+    plt.title("$Z$")
+    plt.xlabel("$T$")
+    plt.ylabel("$Z(m)$")
+    zmax = (np.where(Z == np.max(Z))[0][0], np.max(Z).round(1))
+    plt.annotate("max{}".format(zmax), xy=zmax)
+    plt.xlim(0)
+    plt.grid()
+    plt.show()
+    # 画库容变化
+    # plt.plot(V[:-1])
+    # plt.title("$V$")
+    # plt.xlabel("$T$")
+    # plt.ylabel("$V(10^8m^3)$")
+    # plt.grid()
+    # plt.show()
+    # 画入流出流过程线
+    plt.plot(q_rk, '.-', label='In')
+    inmax = (np.where(q_rk == np.max(q_rk))[0][0], np.max(q_rk))
+    plt.plot(q_ck[:-2], 'r--', label='Out')
+    omax = (np.where(q_ck == np.max(q_ck))[0][0], np.max(q_ck).round(1))
+    plt.title("$In\\quad and\\quad Out(half-figure)$")
+    plt.xlabel("$T(\\Delta T=1h)$")
+    plt.ylabel("$Q(m^3/s)$")
+    plt.annotate("max{}".format(inmax), xy=inmax)
+    plt.annotate("max{}".format(omax), xy=omax)
+    plt.xlim(0)
+    plt.legend()
+    plt.grid()
+    plt.show()
 
 
 def main():
-    print(Utils.ZVQ)
+    # iteration()
+    half_figure()
 
 
 if __name__ == "__main__":
+    util = Utils()
     main()
